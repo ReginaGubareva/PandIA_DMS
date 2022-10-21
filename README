@@ -1,0 +1,8 @@
+The files divided by the part of analysis:
+base analysis
+exploratory analysis
+clusters
+
+All analysis includes Braganca and whole Portugal. If the function works with Braganca
+datasets, it has prefix br. If the function works with portugal it has prefix pt.
+All functions have the comment what chart you should get: table, heatmap, line or geo.
