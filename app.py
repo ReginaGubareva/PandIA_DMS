@@ -1,118 +1,111 @@
-import base_analysis
+import dash_bootstrap_components as dbc
 import plotly.express as px
-import plotly.graph_objects as go
+from dash import html, dcc, dash, Output, Input
 
-from logging.config import dictConfig
-from dash import html, dcc, dash, dash_table
-from flask import Flask
+from geo_analysis import pt_water_pic, br_zone_consumption_pic
 
-dictConfig({
-    'version': 1,
-    'formatters': {'default': {
-        'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
-    }},
-    'handlers': {'wsgi': {
-        'class': 'logging.StreamHandler',
-        'stream': 'ext://flask.logging.wsgi_errors_stream',
-        'formatter': 'default'
-    }},
-    'root': {
-        'level': 'INFO',
-        'handlers': ['wsgi']
-    }
-})
+from styles import (SIDEBAR_STYLE,
+                    CONTENT_STYLE,
+                    NAVLINK_STYLE,
+                    CONTENT_STYLE_HOME)
 
-# app = Flask(__name__)
-app = dash.Dash(__name__)
+from html_components import (consumer_types_tbl_text,
+                             consumer_types_tbl,
+                             zone_description_tbl,
+                             zone_tbl_text)
+from figures import (total_by_consumer_type_fig,
+                     dom_ind_fig,
+                     prcp_fig,
+                     population_fig,
+                     covid_fig,
+                     yearly_fig)
+from test import portugal_map_fig
 
-# app.add_url_rule('/br/water/consumer_type_description', view_func=base_analysis.br_water_consumer_type_description)
-# app.add_url_rule('/br/water/zonas_description', view_func=base_analysis.br_water_zone_description)
-# app.add_url_rule('/br/water/total', view_func=base_analysis.br_water_total_consumption)
-# app.add_url_rule('/br/water/total_by_consumer_type',
-#                  view_func=base_analysis.br_water_total_consumption_by_consumer_type)
-# app.add_url_rule('/br/water/monthly_consumption_domestic_industrial',
-#                  view_func=base_analysis.br_domestico_industrial_monthly_consumption)
-
-# TODO: add commemoration analysis
-
-cons_tipo_description = base_analysis.br_water_consumer_type_description()
-zone_description = base_analysis.br_water_zone_description()
-yearly = base_analysis.br_water_total_consumption()
-total_by_consumer_type = base_analysis.br_water_total_consumption_by_consumer_type()
-total_by_consumer_type_fig = px.area(total_by_consumer_type,
-                                     x=total_by_consumer_type['Year'],
-                                     y=total_by_consumer_type['Consumption'],
-                                     color=total_by_consumer_type['Consumer_type'])
-
-domestico, industrial = base_analysis.br_domestico_industrial_monthly_consumption()
-
-dom_ind_fig = go.Figure()
-dom_ind_fig.add_trace(go.Scatter(
-    x=domestico.Date,
-    y=domestico.Consumption,
-    hovertext=domestico.Consumption,
-    hoverinfo="text",
-    marker=dict(
-        color="blue"
-    ),
-    showlegend=False
-))
-dom_ind_fig.add_trace(go.Scatter(
-    x=industrial.Date,
-    y=industrial.Consumption,
-    hovertext=industrial.Consumption,
-    hoverinfo="text",
-    marker=dict(
-        color="green"
-    ),
-    showlegend=False
-))
-
-
-app.layout = html.Div(
-    children=[
-        html.H1(children="Consumer Type Analytics",
-                style={"fontSize": "48px", "color": "red"}),
+app = dash.Dash(__name__, external_stylesheets=["https://fonts.googleapis.com/css?family=Inconsolata",
+                                                dbc.themes.BOOTSTRAP])
+# app.head = [html.Link(rel='stylesheet', href='./static/style.css')]
+sidebar = html.Div(
+    [
+        html.H2("PandIA Dashboards", className="display-4"),
+        html.Hr(),
         html.P(
-            children="Analyze the behavior of the consumers"
-                     " between 2013 and 2020",
+            "Resource consumption statistics for Bragança and Portugal", className="lead"
         ),
-        dash_table.DataTable(cons_tipo_description.to_dict('records'),
-                             [{"name": i, "id": i} for i in cons_tipo_description.columns]
-                             ),
-        html.Br(),
-        html.Br(),
-        html.P(
-            children="The consumption by Braganca districts.",
+        dbc.Nav(
+            [
+                dbc.NavLink("Home", href="/", active="exact", style=NAVLINK_STYLE),
+                dbc.NavLink("Bragança", href="/braganca", active="exact", style=NAVLINK_STYLE),
+                dbc.NavLink("Portugal", href="/portugal", active="exact", style=NAVLINK_STYLE),
+            ],
+            vertical=True,
+            pills=True,
         ),
+    ],
+    style=SIDEBAR_STYLE,
+)
 
-        dash_table.DataTable(zone_description.to_dict('records'),
-                             [{"name": i, "id": i} for i in zone_description.columns]
-                             ),
-        html.Br(),
-        html.Br(),
-        dcc.Graph(
-            figure={
-                "data": [
-                    {
-                        "x": yearly["Year"],
-                        "y": yearly["Consumption"],
-                        "type": "lines",
-                    },
-                ],
-                "layout": {"title": "Total consumption by years"},
-            },
-        ),
-        dcc.Graph(
-            id='example-graph',
-            figure=total_by_consumer_type_fig
-        ),
-        dcc.Graph(
-            id='dom_ind_fig',
-            figure=dom_ind_fig
-        ),
+home_page_content = html.Div(id="home_page_content", style=CONTENT_STYLE_HOME, children=[
+    html.Div(className='row1', children=[
+        dbc.Col([
+            consumer_types_tbl_text,
+            html.Br(),
+            consumer_types_tbl
+        ]),
+        dbc.Col([
+            html.Br(),
+            html.Br(),
+            zone_tbl_text,
+            html.Br(),
+            zone_description_tbl,
+            html.Br()
+        ]),
+        dbc.Col([
+            html.Br(),
+            total_by_consumer_type_fig,
+            yearly_fig,
+            dom_ind_fig,
+            prcp_fig,
+            html.Br(),
+            covid_fig,
+            html.Br(),
+            population_fig,
+            html.Br()
+        ]),
+    ]),
+])
 
+portugal_content = html.Div(id="home_page_content", style=CONTENT_STYLE_HOME, children=[
+    html.Div(className='row1', children=[
+        dbc.Col([
+            html.Br(),
+            html.H4("Portugal map"),
+            dcc.Graph(
+                id='pt_map',
+                figure=pt_water_pic
+            )
+        ])
     ])
+])
+
+app.layout = html.Div([dcc.Location(id="url"), sidebar, home_page_content])
+
+
+@app.callback(Output("home_page_content", "children"), [Input("url", "pathname")])
+def render_page_content(pathname):
+    if pathname == "/":
+        return home_page_content
+    elif pathname == "/braganca":
+        return html.P("This is the content of page 1. Yay!")
+    elif pathname == "/portugal":
+        return portugal_content
+    return html.Div(
+        [
+            html.H1("404: Not found", className="text-danger"),
+            html.Hr(),
+            html.P(f"The pathname {pathname} was not recognised..."),
+        ],
+        className="p-3 bg-light rounded-3",
+    )
 
 
 if __name__ == '__main__':

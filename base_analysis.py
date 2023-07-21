@@ -1,10 +1,15 @@
+import calendar
+import logging.config
+
 import pandas as pd
+from dash import html
 
-from scripts.utils import csv_to_json
-import logging
-from dash import html, dcc
+from logging_conf import LOGGING_CONFIG
 
-df = pd.read_csv("data/br_water_main.csv")
+logging.config.dictConfig(LOGGING_CONFIG)
+logger = logging.getLogger(__name__)
+
+df = pd.read_csv("data/br/br_water_main.csv")
 
 
 def br_water_consumer_type_description():
@@ -38,9 +43,6 @@ def br_water_consumer_type_description():
     cons_tipo_description = cons_tipo_description.sort_values('Count', ascending=False)
     return cons_tipo_description
 
-    # json_status, json_data = csv_to_json(cons_tipo_description)
-    # return {'resultStatus': json_status, 'resultData': json_data}
-
 
 def br_water_zone_description():
     """
@@ -52,9 +54,6 @@ def br_water_zone_description():
     zona = zona.reset_index().drop(columns=['index'])
     return zona
 
-    # json_status, json_data = csv_to_json(zona)
-    # return {'resultStatus': json_status, 'resultData': json_data}
-
 
 def br_water_total_consumption():
     """
@@ -64,9 +63,6 @@ def br_water_total_consumption():
         columns=['Month', 'Consumer_number', 'Installation_zone', 'Installation_number', 'Date', 'Consumer_type'])
     yearly1 = yearly.groupby(['Year'], as_index=False).sum()
     return yearly1
-
-    # json_status, json_data = csv_to_json(yearly1)
-    # return {'resultStatus': json_status, 'resultData': json_data}
 
 
 def br_water_total_consumption_by_consumer_type():
@@ -78,13 +74,11 @@ def br_water_total_consumption_by_consumer_type():
     df_1 = df_1.groupby(['Year', 'Consumer_type'], as_index=False).aggregate({'Consumption': 'sum'})
     return df_1
 
-    # json_status, json_data = csv_to_json(df_1)
-    # return {'resultStatus': json_status, 'resultData': json_data}
-
 
 #####################################################################
 ############# Domestic and Industrial types monthly analysis ########
 #####################################################################
+
 
 def br_domestico_industrial_monthly_consumption():
     """
@@ -93,15 +87,46 @@ def br_domestico_industrial_monthly_consumption():
     domestico = _get_monthly_consumption_by_type("DOMÉSTICO")
     insustrial = _get_monthly_consumption_by_type(" COM/INDUSTRIAL/OBRAS")
     return domestico, insustrial
-    # json_status_dom, json_data_dom = csv_to_json(domestico)
-    # json_status_ind, json_data_ind = csv_to_json(insustrial)
-    # return json_data_dom, json_data_ind
+
 
 def br_precipitation_monthly():
     """
     Here should be line chart of monthly precipitation level
-    :return:
     """
+    precipitation = pd.read_csv("data/br/br_precipitation.csv")
+    return precipitation
+
+
+def br_population():
+    """
+    Line charts of the population dynamics.
+    """
+    population = pd.read_csv("data/br/br_population.csv")
+    return population
+
+
+def br_covid():
+    """
+    :return: covid cases and total water consumption in 2020
+    """
+    covid = pd.read_csv("data/br/br_covid.csv")
+
+    df_2020 = df.drop(columns=["Consumer_number", "Installation_zone", "Installation_number", "Date"])
+    df_2020 = df_2020[df_2020["Year"] == 2020].drop(columns=["Year"])
+    df_2020 = df_2020[df_2020['Consumer_type'] == "DOMÉSTICO"].drop(columns=['Consumer_type'])
+    df_2020 = df_2020.groupby(['Month'], as_index=False).sum()
+    df_2020['Month'] = df_2020['Month'].apply(lambda x: calendar.month_abbr[x])
+
+    return df_2020, covid
+
+
+def br_water_consumption_by_consumer_type():
+    cons = df.drop(
+        columns=['Year', 'Month', 'Consumer_number', 'Installation_zone', 'Installation_number', 'Date']) \
+        .groupby(['Consumer_type'], as_index=False).sum()
+    cons = cons.sort_values('Consumption', ascending=False)
+    cons = cons[cons['Consumer_type'] != 'CP.DOM/RURAL'].reset_index().drop(columns=['index'])
+    return cons
 
 
 def _get_monthly_consumption_by_type(consumer_type: str):
@@ -112,3 +137,17 @@ def _get_monthly_consumption_by_type(consumer_type: str):
     consumption_sum["Date"] = pd.to_datetime(consumption_sum["Date"], format='%Y/%m/%d').dt.strftime('%b-%Y')
     consumption_sum['Consumption'] = ((consumption_sum['Consumption']) / (consumption_sum['Consumption'].max())) * 10
     return consumption_sum
+
+
+def generate_table(dataframe, max_rows=20):
+    return html.Table([
+        html.Thead(
+            html.Tr([html.Th(col) for col in dataframe.columns])
+        ),
+        html.Tbody([
+            html.Tr([
+                html.Td(dataframe.iloc[i][col]) for col in dataframe.columns
+            ]) for i in range(min(len(dataframe), max_rows))
+        ]),
+
+    ])
